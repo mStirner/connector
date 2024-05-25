@@ -42,6 +42,7 @@
     "dateformat": "^4.6.3",
     "dotenv": "^16.0.0",
     "minimist": "^1.2.6",
+    "raw-socket": "^1.8.1",
     "ws": "^8.5.0",
     "xml-js": "^1.6.11"
   },

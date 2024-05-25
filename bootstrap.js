@@ -79,9 +79,47 @@ function bootstrap() {
                 }
             });
 
+        }),
+
+
+        // connect to websocket events
+        new Promise((resolve, reject) => {
+
+            let uri = new url.URL(process.env.BACKEND_URL);
+            uri.protocol = (process.env.BACKEND_PROTOCOL === "https" ? "wss" : "ws");
+            uri.pathname = "/api/system/connector";
+            uri.search = `x-auth-token=${process.env.AUTH_TOKEN}`;
+
+            let ws = new WebSocket(uri);
+
+            ws.on("open", () => {
+
+                logger.debug(`WebSocket connected to: ${ws.url}`);
+
+                resolve(ws);
+
+            });
+
+            ws.on("error", (err) => {
+                //console.error("Websocket", err);
+                reject(err);
+            });
+
+            ws.on("close", (code) => {
+                if (code === 1006) {
+
+                    retry();
+
+                } else {
+
+                    console.warn("WebSocket (event) conneciton closed", code);
+
+                }
+            });
+
         })
 
-    ]).then(([map, ws]) => {
+    ]).then(([map, ws, connector]) => {
 
         // reset flags
         counter = 0;
@@ -91,6 +129,7 @@ function bootstrap() {
 
         require("./forwarder.js");
         require("./handler.js")(map, ws);
+        require("./socketize.js")(map, connector);
 
     }).catch((err) => {
         if (err.code === "ECONNREFUSED") {
