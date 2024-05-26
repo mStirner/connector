@@ -38,7 +38,7 @@ module.exports = (map, ws) => {
         });
 
         worker.once("exit", (code) => {
-            console.log("Worker exited with code %d: %s", code, upstream)
+            console.log("Worker exited with code %d: %s", code, upstream);
         });
 
         worker.once("error", (err) => {

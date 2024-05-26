@@ -52,7 +52,7 @@ if (isMainThread && process.argv[2] !== "--direct") {
 
         raw.writeChecksum(buffer, 2, raw.createChecksum(buffer));
 
-        socket.send(buffer, 0, buffer.length, "8.8.8.8", (error, bytes) => {
+        socket.send(buffer, 0, buffer.length, "8.8.8.8", (error) => {
             if (error) {
                 console.log("[worker] ping error", error.toString());
             } else {

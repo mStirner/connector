@@ -5,7 +5,7 @@ const raw = require("raw-socket");
 // the protocol implemtnation is done on the server side
 const logger = require("../system/logger.js");
 
-module.exports = ({ host, port }, options) => {
+module.exports = ({ host, port }) => {
 
     let socket = raw.createSocket({
         protocol: raw.Protocol.ICMP
@@ -16,10 +16,12 @@ module.exports = ({ host, port }, options) => {
 
             console.log("Write to device", `raw://${host}:${port}`, chunk);
 
-            socket.send(chunk, 0, chunk.length, host, (error, bytes) => {
-                console.log("Writen to devoce")
+            socket.send(chunk, 0, chunk.length, host, (error) => {
+                console.log("Writen to devoce");
                 if (error)
                     console.log(error.toString());
+
+                cb(error);
             });
 
 
@@ -29,7 +31,7 @@ module.exports = ({ host, port }, options) => {
         },
         end(chunk) {
             if (chunk) {
-                socket.send(chunk, 0, chunk.length, host, (error, bytes) => {
+                socket.send(chunk, 0, chunk.length, host, (error) => {
                     if (error)
                         console.log(error.toString());
                 });
