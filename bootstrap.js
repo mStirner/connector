@@ -34,7 +34,7 @@ function bootstrap() {
 
         }).forEach((device) => {
 
-            console.log("device", device)
+            //console.log("device", device)
 
             device.interfaces.forEach((iface) => {
 

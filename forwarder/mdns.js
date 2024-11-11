@@ -44,7 +44,7 @@ socket.on("listening", () => {
 });
 
 ws.on("message", (msg) => {
-    log.trace("Send message to multicast addr", msg);
+    log.debug("Send message to multicast addr", msg);
     socket.send(msg, 0, msg.length, 5353, "224.0.0.251");
 });
 

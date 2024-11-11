@@ -2,12 +2,13 @@ const { URLSearchParams } = require("url");
 const { Worker } = require("worker_threads");
 
 const rewriteURL = require("./helper/rewrite-url.js");
+const logger = require("./system/logger.js");
 
 module.exports = (mappings, ws) => {
 
     let workers = new Set();
 
-    console.log("map", mappings)
+    //console.log("map", mappings)
 
     ws.on("message", (msg) => {
 
@@ -23,7 +24,7 @@ module.exports = (mappings, ws) => {
         }
         */
 
-        console.log("Message from backend for bidrigin interface", msg.toString());
+        logger.verbose("Message from backend for bidrigin interface", msg.toString());
 
         let { iface, type, socket } = JSON.parse(msg);
 
@@ -43,9 +44,9 @@ module.exports = (mappings, ws) => {
 
             //console.log("msg.interface:", msg.iface, mappings.i2d)
 
-            console.group("bridge request");
-            console.log("mappings.i2d get", mappings.i2d.get(msg.iface));
-            console.groupEnd();
+            //console.group("bridge request");
+            //console.log("mappings.i2d get", mappings.i2d.get(msg.iface));
+            //console.groupEnd();
 
             let upstream = `${process.env.BACKEND_URL}/api/devices/${mappings.i2d.get(msg.iface)?._id || mappings.i2d.get(msg.iface)}/interfaces/${msg.iface}`;
             let { host, port, socket } = mappings.i2s.get(msg.iface);
@@ -61,11 +62,11 @@ module.exports = (mappings, ws) => {
             });
 
             worker.once("online", () => {
-                console.log("Worker spawend for url %s", upstream);
+                logger.debug("Worker spawend for url %s", upstream);
             });
 
             worker.once("exit", (code) => {
-                console.log("Worker exited with code %d: %s", code, upstream);
+                logger.debug("Worker exited with code %d: %s", code, upstream);
             });
 
             worker.once("error", (err) => {
@@ -74,14 +75,14 @@ module.exports = (mappings, ws) => {
 
         } else {
 
-            console.log("Invalid request", iface, type, socket)
+            logger.debug("Invalid request", iface, type, socket)
 
         }
     });
 
     ws.once("close", () => {
 
-        console.log("WS connection to /connector closed, terminate workers");
+        logger.warn("WS connection to /connector closed, terminate workers");
 
         // why close? if the ws connection is dropped
         // there should also be the ws conenction in the workers closed
@@ -89,7 +90,7 @@ module.exports = (mappings, ws) => {
         // instead do here a "force cleanup" after x amount of time
         setTimeout(() => {
 
-            console.log("Terminate %d reamaing active worker", workers.size);
+            logger.info("Terminate %d reamaing active worker", workers.size);
 
             Array.from(workers).forEach((worker) => {
                 worker.terminate();
