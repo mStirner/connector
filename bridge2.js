@@ -7,7 +7,6 @@ const {
     parentPort
 } = require("worker_threads");
 
-const WebSocket = require("ws");
 const minimist = require("minimist");
 
 
@@ -25,7 +24,7 @@ const argv = minimist(process.argv, {
 if (!isMainThread) {
 
     // arguments passed via workerData
-    // path argv object with passed data
+    // patch argv object with passed data
     Object.assign(argv, workerData);
 
 }
@@ -48,43 +47,48 @@ if ((isMainThread && (!argv.upstream || !argv.host)) || argv.help || (!argv.port
 
 //console.log(`bridge2.js --upstream="${argv.upstream}" --host="${argv.host}" --port="${argv.port}" --socket="${argv.socket}"`);
 
-// bridge the websocket stream to underlaying network socket
-let ws = new WebSocket(argv.upstream);
 
-ws.once("error", (err) => {
 
-    console.error(err);
-    process.exit(10);
+if (!isMainThread) {
 
-});
-
-ws.once("close", (code) => {
-    console.log("Closed with code", code);
-    process.exit();
-});
-
-ws.once("open", () => {
-
-    let upstream = WebSocket.createWebSocketStream(ws);
-
-    let socket = require(`./sockets/${argv.socket}.js`)({
+    let { ws } = require("./system/socket.js")({
+        upstream: argv.upstream,
         host: argv.host,
-        port: argv.port
+        port: argv.port,
+        socket: argv.socket
+        // options = new WebSocket(..., options);
+        // pass/build x-auth-token header
     });
 
-    upstream.pipe(socket);
-    socket.pipe(upstream);
+    ws.on("close", (code) => {
+        process.exit(0);
+    });
 
-    if (!isMainThread) {
-        parentPort.on("message", (msg) => {
-            if (msg === "disconnect") {
+    parentPort.on("message", (msg) => {
+        if (msg === "disconnect") {
 
-                ws.close(() => {
-                    process.exit(0);
-                });
+            ws.close(() => {
+                process.exit(0);
+            });
 
-            }
-        });
-    }
+        }
+    });
 
-});
+} else {
+
+    // the cli tool "bridge.js" makes no sense anymore.
+    // since the backend is switched to a request/response socket creation
+    // BUT: It could be helpful to start the connector in a single/filter mode
+    // E.g. listen on a specific interface for bridge requests
+    // implement here the ws connection to ws://<host>:<port>/api/system/connector
+    // and listen for bridge requests and do the job
+
+    /*
+    let worker = new Worker(__filename);
+
+    process.once("SIGINT", () => {
+        worker.postMessage("disconnect");
+    });
+    */
+
+}
