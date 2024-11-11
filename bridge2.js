@@ -60,7 +60,7 @@ if (!isMainThread) {
         // pass/build x-auth-token header
     });
 
-    ws.on("close", (code) => {
+    ws.on("close", () => {
         process.exit(0);
     });
 
