@@ -73,6 +73,8 @@ module.exports = (mappings, ws) => {
                 console.error("Worker died", err, upstream);
             });
 
+            workers.add(worker);
+
         } else {
 
             logger.debug("Invalid request", iface, type, socket)
