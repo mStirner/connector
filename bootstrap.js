@@ -1,4 +1,3 @@
-const url = require("url");
 const WebSocket = require("ws");
 const request = require("./helper/request.js");
 const logger = require("./system/logger.js");
