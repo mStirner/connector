@@ -38,7 +38,7 @@ module.exports = ({ host, port }) => {
         },
         end(chunk) {
             if (chunk) {
-                socket.send(chunk, 0, chunk.length, port, host, cb);
+                socket.send(chunk, 0, chunk.length, port, host);
             }
             socket.close();
         }

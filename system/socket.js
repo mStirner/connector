@@ -1,6 +1,6 @@
 const WebSocket = require("ws");
 
-const logger = require("./logger.js")
+const logger = require("./logger.js");
 
 // maps os syscall codes to ws codes
 // https://developer.mozilla.org/en-US/docs/Web/API/CloseEvent/code
@@ -36,12 +36,12 @@ module.exports = ({ upstream: url, options = {}, socket: proto, host, port }) =>
     let stream = WebSocket.createWebSocketStream(ws);
 
     ws.once("close", (code) => {
-        logger.verbose("ws closed", url, `${proto}://${host}:${port}`, code)
+        logger.verbose("ws closed", url, `${proto}://${host}:${port}`, code);
     });
 
     ws.once("open", () => {
 
-        logger.verbose("ws opend", url, `${proto}://${host}:${port}`)
+        logger.verbose("ws opend", url, `${proto}://${host}:${port}`);
 
         let socket = require(`../sockets/${proto}.js`)({
             host,

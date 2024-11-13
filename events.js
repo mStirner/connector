@@ -26,7 +26,7 @@ module.exports = (mappings, ws) => {
                 } if (msg.event === "remove") {
 
                     device.interfaces.forEach(({ _id }) => {
-                        mappings.i2d.remove(_id)
+                        mappings.i2d.remove(_id);
                         mappings.i2s.remove(_id);
                     });
 

@@ -77,7 +77,8 @@ module.exports = (mappings, ws) => {
 
         } else {
 
-            logger.debug("Invalid request", iface, type, socket)
+            // feedback
+            logger.debug("Invalid request", iface, type, socket);
 
         }
     });
