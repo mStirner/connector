@@ -60,6 +60,10 @@ function bootstrap() {
             // connecto to /api/events
             new Promise((resolve, reject) => {
 
+                if (process.env.BRIDGE_LEGACY !== "true") {
+                    return resolve(null);
+                }
+
                 let ws = new WebSocket(rewriteURL(`${process.env.BACKEND_URL}/api/events`), {
                     headers: {
                         "x-auth-token": process.env.AUTH_TOKEN
@@ -85,6 +89,10 @@ function bootstrap() {
 
             // connect to /api/system/connector
             new Promise((resolve, reject) => {
+
+                if (process.env.BRIDGE_SOCKETS !== "true") {
+                    return resolve(null);
+                }
 
                 let ws = new WebSocket(rewriteURL(`${process.env.BACKEND_URL}/api/system/connector`), {
                     headers: {
@@ -118,9 +126,14 @@ function bootstrap() {
 
         logger.info("Read to bridge traffic");
 
-        require("./events.js")(mappings, events);
-        require("./socket.js")(mappings, connector); // new bridiging
-        require("./handler.js")(mappings.url2iface, events); // legacy bridiging
+        if (process.env.BRIDGE_SOCKETS === "true") {
+            require("./socket.js")(mappings, connector); // new bridiging
+        }
+
+        if (process.env.BRIDGE_LEGACY === "true") {
+            require("./events.js")(mappings, events);
+            require("./handler.js")(mappings.url2iface, events); // legacy bridiging
+        }
 
         require("./forwarder.js");
 
