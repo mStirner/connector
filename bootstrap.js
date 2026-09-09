@@ -1,13 +1,41 @@
+const { BlockList } = require("net");
+const dns = require("dns");
+const net = require("net");
+const { readFileSync, existsSync } = require("fs");
+const os = require("os");
+const pkg = require("./package.json");
+
 const WebSocket = require("ws");
 const request = require("./helper/request.js");
 const logger = require("./system/logger.js");
 
 const rewriteURL = require("./helper/rewrite-url.js");
+const mappings = Object.create(null);
 
 
 // retry flags
 var crashed = false;
 var counter = 0;
+var whitelist = null;
+
+
+try {
+    if (!existsSync(process.env.ALLOWLIST_PATH)) {
+
+        logger.warn(`allowlist.json does not exists, skip.`);
+
+    } else {
+
+        const content = readFileSync(process.env.ALLOWLIST_PATH);
+        whitelist = JSON.parse(content);
+
+    }
+} catch (err) {
+
+    logger.warn(err, "Could not read/parse allowlist.json");
+
+}
+
 
 // 1) fetch devices / interfaes
 // 2) setup ws connections to /events & /system/connector
@@ -20,11 +48,18 @@ function bootstrap() {
 
         logger.debug(`Fetched ${process.env.BACKEND_URL}/api/devices`);
 
-        let mappings = Object.create(null);
+        if (result.status !== 200) {
+            logger.error("HTTP Status != 200;", result.status, result);
+            process.exit(1);
+        }
+
+
 
         mappings.i2d = new Map();
         mappings.i2s = new Map();
         mappings.url2iface = new Map();
+        //mappings.connections = 0;
+        mappings.info = Object.create(null);
 
         // build interface/device mapping
         result.body.filter((device) => {
@@ -90,6 +125,25 @@ function bootstrap() {
                     return resolve(null);
                 }
 
+                mappings.info = {
+                    version: pkg.version,
+                    whitelist,
+                    hostname: os.hostname(),
+                    interfaces: Object.entries(os.networkInterfaces()).flatMap(([name, addresses]) => {
+                        return addresses.filter(addr => {
+                            return !addr.internal && addr.family === "IPv4";
+                        }).map((addr) => {
+                            return {
+                                name,
+                                address: addr.address,
+                                netmask: addr.netmask,
+                                mac: addr.mac
+                            };
+                        });
+                    }),
+                    connections: 0,
+                };
+
                 let ws = new WebSocket(rewriteURL(`${process.env.BACKEND_URL}/api/system/connector`), {
                     headers: {
                         "x-auth-token": process.env.AUTH_TOKEN
@@ -97,8 +151,17 @@ function bootstrap() {
                 });
 
                 ws.once("open", () => {
+
                     logger.debug(`WebSocket connected to "${ws.url}"`);
+
+                    let json = JSON.stringify({
+                        event: "info",
+                        info: mappings.info
+                    });
+
+                    ws.send(json);
                     resolve(ws);
+
                 });
 
                 ws.once("error", (err) => {
@@ -111,23 +174,94 @@ function bootstrap() {
                     retry();
                 });
 
+            }),
+
+            // build/load allow list
+            new Promise((resolve, reject) => {
+
+                if (!whitelist) {
+                    return resolve({
+                        whitelist: [],
+                        allowlist,
+                    });
+                }
+
+                const allowlist = new BlockList();
+
+                if (whitelist.length <= 0) {
+                    logger.warn(`Empty allowlist.json detected. Every connection attempt will be rejected!`);
+                }
+
+                const resolvers = whitelist.map((host) => {
+                    return new Promise((resolve) => {
+
+                        if (host.includes("/")) {
+
+                            let [range, prefix] = host.split("/");
+                            allowlist.addSubnet(range, parseInt(prefix));
+
+                            resolve();
+
+                        } else if (net.isIP(host)) {
+
+                            allowlist.addAddress(host);
+                            resolve();
+
+                        } else {
+
+                            // dns.resolve does not work with *.local domains
+                            // it sends raw dns queries to the dns server and do not respect avhai
+                            dns.lookup(host, (err, addr) => {
+                                //dns.resolve(host, (err, records) => {
+
+                                if (err) {
+                                    logger.warn(err, `Could not resolve hostname "${err}"`);
+                                    return;
+                                }
+
+                                /*
+                                // does only work with dns.resolve
+                                records.forEach((ip) => {
+                                    allowlist.addAddress(ip);
+                                });
+                                */
+
+                                allowlist.addAddress(addr);
+
+                                resolve();
+
+                            });
+
+                        }
+
+                    });
+                });
+
+
+                Promise.all(resolvers).then(() => {
+                    resolve({
+                        whitelist,
+                        allowlist
+                    });
+                }).catch(reject);
+
             })
 
         ]);
-    }).then(([mappings, events, connector]) => {
+    }).then(([mappings, events, connector, allowlist]) => {
 
         // reset flags
         counter = 0;
         crashed = false;
 
-        logger.info("Read to bridge traffic");
+        logger.info("Ready to bridge traffic");
 
         if (process.env.BRIDGE_SOCKETS === "true") {
-            require("./socket.js")(mappings, connector); // new bridiging
+            require("./socket.js")(mappings, connector, allowlist); // new bridiging
         }
 
         if (process.env.BRIDGE_LEGACY === "true") {
-            require("./events.js")(mappings, events);
+            //require("./events.js")(mappings, events);
             require("./handler.js")(mappings.url2iface, events); // legacy bridiging
         }
 
