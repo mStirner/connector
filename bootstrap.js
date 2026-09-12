@@ -95,7 +95,7 @@ function bootstrap() {
             // connecto to /api/events
             new Promise((resolve, reject) => {
 
-                let ws = new WebSocket(rewriteURL(`${process.env.BACKEND_URL}/api/events`), {
+                let ws = new WebSocket(rewriteURL(`${process.env.BACKEND_URL}/api/events?intents[]=add&intents[]=update&intents[]=remove`), {
                     headers: {
                         "x-auth-token": process.env.AUTH_TOKEN
                     }
