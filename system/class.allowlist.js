@@ -119,7 +119,7 @@ module.exports = class Allowlist {
                 dns.lookup(host, (err, addr) => {
                     if (err) {
 
-                        logger.warn(err, `Could not resolve hostname "${err}"`);
+                        logger.warn(err, `Could not resolve hostname "${host}"`);
                         resolve(false);
 
                     } else {
