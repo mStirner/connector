@@ -1,6 +1,3 @@
-const { BlockList } = require("net");
-const dns = require("dns");
-const net = require("net");
 const { readFileSync, existsSync } = require("fs");
 const os = require("os");
 const pkg = require("./package.json");
@@ -8,6 +5,7 @@ const pkg = require("./package.json");
 const WebSocket = require("ws");
 const request = require("./helper/request.js");
 const logger = require("./system/logger.js");
+const Allowlist = require("./system/class.allowlist.js");
 
 const rewriteURL = require("./helper/rewrite-url.js");
 const mappings = Object.create(null);
@@ -177,75 +175,7 @@ function bootstrap() {
             }),
 
             // build/load allow list
-            new Promise((resolve, reject) => {
-
-                if (!whitelist) {
-                    return resolve({
-                        whitelist: [],
-                        allowlist,
-                    });
-                }
-
-                const allowlist = new BlockList();
-
-                if (whitelist.length <= 0) {
-                    logger.warn(`Empty allowlist.json detected. Every connection attempt will be rejected!`);
-                }
-
-                const resolvers = whitelist.map((host) => {
-                    return new Promise((resolve) => {
-
-                        if (host.includes("/")) {
-
-                            let [range, prefix] = host.split("/");
-                            allowlist.addSubnet(range, parseInt(prefix));
-
-                            resolve();
-
-                        } else if (net.isIP(host)) {
-
-                            allowlist.addAddress(host);
-                            resolve();
-
-                        } else {
-
-                            // dns.resolve does not work with *.local domains
-                            // it sends raw dns queries to the dns server and do not respect avhai
-                            dns.lookup(host, (err, addr) => {
-                                //dns.resolve(host, (err, records) => {
-
-                                if (err) {
-                                    logger.warn(err, `Could not resolve hostname "${err}"`);
-                                    return;
-                                }
-
-                                /*
-                                // does only work with dns.resolve
-                                records.forEach((ip) => {
-                                    allowlist.addAddress(ip);
-                                });
-                                */
-
-                                allowlist.addAddress(addr);
-
-                                resolve();
-
-                            });
-
-                        }
-
-                    });
-                });
-
-
-                Promise.all(resolvers).then(() => {
-                    resolve({
-                        whitelist,
-                        allowlist
-                    });
-                }).catch(reject);
-
-            })
+            new Allowlist().load()
 
         ]);
     }).then(([mappings, events, connector, allowlist]) => {
