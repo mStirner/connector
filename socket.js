@@ -1,15 +1,16 @@
 const { URLSearchParams } = require("url");
-const { Worker } = require("worker_threads");
-const dns = require("dns");
-const net = require("net");
+const { Worker, MessageChannel } = require("worker_threads");
 
 const rewriteURL = require("./helper/rewrite-url.js");
 const logger = require("./system/logger.js");
+//const icmpSystem = require("./system/icmp.js");
+const { attach } = require("./system/raw-socket.js");
 
-module.exports = (mappings, ws, { whitelist, allowlist }) => {
+//module.exports = (mappings, ws, { whitelist, allowlist }) => {
+module.exports = (mappings, ws, allowlist) => {
 
     let workers = new Set();
-    let intervall = null;
+    //let intervall = null;
 
     ws.on("message", async (msg) => {
         try {
@@ -38,6 +39,7 @@ module.exports = (mappings, ws, { whitelist, allowlist }) => {
                     return;
                 }
 
+                /*
                 let allowed = await new Promise((resolve) => {
 
                     if (whitelist.length === 0) {
@@ -71,19 +73,40 @@ module.exports = (mappings, ws, { whitelist, allowlist }) => {
                     }
 
                 });
+                */
 
-                if (!allowed) {
+                logger.verbose(`check allowlist, ${host} = ${await allowlist.includes(host)}`);
+
+                if (!await allowlist.includes(host)) {
                     logger.warn(`Host "${host}" is not in allowlist.json whitelist. Abort connection!`);
                     return;
                 }
 
+                const transferList = [];
+
+                const workerData = {
+                    upstream: `${rewriteURL(upstream)}?${sp.toString()}`,
+                    host,
+                    port,
+                    socket
+                };
+
+                if (socket === "icmp") {
+
+                    // ein MessageChannel pro Worker: port1 bleibt im Main-Thread
+                    // und wird an den shared ICMP-Socket gehaengt, port2 wandert
+                    // (per transfer!) in den Worker
+                    const { port1, port2 } = new MessageChannel();
+
+                    attach(port1);
+                    workerData.icmpPort = port2;
+                    transferList.push(port2);
+
+                }
+
                 let worker = new Worker("./bridge2.js", {
-                    workerData: {
-                        upstream: `${rewriteURL(upstream)}?${sp.toString()}`,
-                        host,
-                        port,
-                        socket
-                    },
+                    workerData,
+                    transferList,
                     env: process.env
                 });
 
@@ -173,7 +196,7 @@ module.exports = (mappings, ws, { whitelist, allowlist }) => {
 
                 logger.info("Terminate %d reamaing active worker", workers.size);
 
-                clearInterval(intervall);
+                //clearInterval(intervall);
 
                 Array.from(workers).forEach((worker) => {
                     worker.terminate();
@@ -185,6 +208,7 @@ module.exports = (mappings, ws, { whitelist, allowlist }) => {
         });
     });
 
+    /*
     intervall = setInterval(() => {
 
         let byIface = {};
@@ -203,5 +227,6 @@ module.exports = (mappings, ws, { whitelist, allowlist }) => {
         console.groupEnd();
 
     }, 60_000);
+    */
 
 };
